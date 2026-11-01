@@ -1,0 +1,45 @@
+# Memory findings that are nginx's own, not this module's.  The valgrind job
+# drives the module through ci/upload.sh, which runs one foreground nginx
+# (master_process off) end to end and shuts it down with QUIT, so the pools
+# are freed and whatever is left here belongs to nginx core, not to upload.
+#
+# Every entry is measured, not assumed: with an empty file the driver reports
+# exactly these three and nothing else, and in none of them does a frame from
+# ngx_http_upload_module.c appear -- the leaks are nginx start-up arrays it
+# keeps until the process exits, and the conditional jump reads bytes that
+# --track-origins traces to nginx's own request pool (ngx_http_process_
+# request_line -> ngx_list_init), not to anything the module allocated.
+#
+# Each entry is pinned to the nginx core functions it occurs in, so it cannot
+# mask the same class of finding if it ever came from the module instead.  If
+# a later nginx brings a new finding, valgrind prints a full trace; add it
+# then, with a name and a reason, rather than keeping one here on spec.
+
+{
+   nginx keeps the environment array until the process ends
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_set_environment
+   ...
+}
+
+{
+   nginx keeps the connection and event arrays until the process ends
+   Memcheck:Leak
+   match-leak-kinds: definite,indirect
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_event_process_init
+   ...
+}
+
+{
+   nginx core reads its own request-pool bytes walking the busy output chain
+   Memcheck:Cond
+   fun:ngx_chain_update_chains
+   fun:ngx_output_chain
+   fun:ngx_http_upstream_send_request_body
+   ...
+}

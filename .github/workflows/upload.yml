@@ -1,0 +1,38 @@
+name: Upload
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Monday morning, so a new nginx release that breaks the module shows
+    # up here and not in somebody's build
+    - cron: '41 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: upload files and check what is stored
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The suite in t/ covers the module; this drives it end to end against a
+    # real client and a real upstream, storing a simple upload and a resumable
+    # one in two chunks and comparing what landed on disk with what was sent.
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup
+        with:
+          test-nginx: 'false'
+
+      - name: Build nginx
+        run: |
+          . .github/versions.env
+          ci/build.sh "$NGINX_VERSION" "$HOME/nginx"
+
+      - name: Store a simple and a resumable upload
+        run: ci/upload.sh "$HOME/nginx/sbin/nginx"
