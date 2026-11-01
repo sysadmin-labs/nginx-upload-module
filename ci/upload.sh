@@ -53,13 +53,21 @@ note() { echo "  $1" >&2; fail=1; }
 # than one chunk and the content is distinctive enough to compare.
 payload="$WORK/payload.bin"
 head -c 200000 /dev/urandom > "$payload"
-total=$(wc -c < "$payload")
+total=$(wc -c < "$payload" | tr -d " ")
 
 load=
 [ -n "${UPLOAD_LOAD_MODULE:-}" ] && load="load_module $UPLOAD_LOAD_MODULE;"
 
+# Run as root (the FreeBSD job does) and nginx workers drop to "nobody",
+# which cannot write the root-owned upload store, so pin the workers to root.
+ngx_user=
+if [ "$(id -u)" = 0 ]; then
+	ngx_user="user root $(id -gn);"
+fi
+
 cat > "$WORK/conf/nginx.conf" <<CONF
 $load
+$ngx_user
 daemon $daemon_mode;
 master_process $master_mode;
 worker_processes 1;

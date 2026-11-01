@@ -46,6 +46,8 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup
+        with:
+          packages: libtest-file-perl libhttp-daemon-perl
 
       - name: Build nginx ${{ matrix.nginx }}
         run: ci/build.sh '${{ matrix.nginx }}' "$HOME/nginx"
@@ -68,6 +70,8 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup
+        with:
+          packages: libtest-file-perl libhttp-daemon-perl
 
       - name: Build the module as a loadable object
         run: ci/build.sh '${{ needs.pins.outputs.version }}' "$HOME/nginx" dynamic

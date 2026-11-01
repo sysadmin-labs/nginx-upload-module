@@ -24,24 +24,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build and run the suite in a FreeBSD virtual machine
+      - name: Build and drive the module in a FreeBSD virtual machine
         uses: vmactions/freebsd-vm@v1.5.9
         with:
           release: '14'
           prepare: |
-            # curl is not in base; the upload suite needs Test::File and HTTP::Daemon too
-            pkg install -y git pcre2 curl p5-Test-Nginx p5-Test-File p5-HTTP-Daemon
+            # curl is not in base; the build needs pcre2.  The bundled
+            # Test::Nginx suite is Linux-only (it reads /proc/net/tcp and its
+            # mock upstream binds a fixed port without SO_REUSEADDR), so
+            # FreeBSD runs the end-to-end driver instead, which needs neither.
+            pkg install -y git pcre2 curl
           run: |
             . .github/versions.env
             ci/build.sh "$NGINX_VERSION" "$HOME/nginx"
-            # the job runs as root, and Test::Nginx then writes "user
-            # root;" into its configuration.  root has no group of that
-            # name here, it is in wheel
-            TEST_NGINX_WORKER_USER='root wheel' \
-              TEST_NGINX_NO_SHUFFLE=1 \
-            TEST_NGINX_BINARY="$HOME/nginx/sbin/nginx" prove -r t/
-            # checked here as well: the dates are read through the
-            # OpenSSL of the base system, not the version the Linux jobs use
+            # the driver sends real multipart and resumable uploads through
+            # the base system's curl and reads the dates through its OpenSSL,
+            # not the versions the Linux jobs use
             ci/upload.sh "$HOME/nginx/sbin/nginx"
             # www/nginx ships this module as a loadable object, so that is
             # the build the package is made of and it is built here too
